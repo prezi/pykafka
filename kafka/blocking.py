@@ -2,7 +2,13 @@ import array
 import errno
 import socket
 
-from kafka.base import BaseKafka, logging, StringIO, ConnectionFailure
+from kafka.base import (
+    BaseKafka, 
+    logging, 
+    StringIO, 
+    ConnectionFailure, 
+    KafkaIOError
+)
 socket_log = logging.getLogger('kafka.socket')
 
 __all__ = [
@@ -56,9 +62,9 @@ class Kafka(BaseKafka):
                 read_length = read_length + len(chunk)
                 read_data = read_data + chunk
                 self.total_read += read_length
-        except errno.EAGAIN:
-            self.disconnect()
-            raise IOError("Timeout reading from the socket.")
+        except socket.error, e:
+            self._disconnect()
+            raise KafkaIOError(str(e))
         else:
             # socket_log.info('recv: {0} bytes total'.format(len(read_data)))
             output = self._overflow + read_data[0:length]
@@ -85,13 +91,9 @@ class Kafka(BaseKafka):
                 # socket_log.info('send: {0}'.format(repr(data)))
                 wrote_length += self._socket.send(data)
 
-        except (errno.ECONNRESET, errno.EPIPE, errno.ECONNABORTED):
-            # Retry once.
-            self._reconnect()
-            if retries > 0:
-                return self._write(data, callback, retries - 1)
-            else:
-                raise MaxRetries()
+        except socket.error, e:
+            self._disconnect()
+            raise KafkaIOError(str(e))
         else:
             return callback()
     
