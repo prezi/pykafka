@@ -29,6 +29,7 @@ class InvalidMessageCode(KafkaError): pass
 class WrongPartitionCode(KafkaError): pass
 class InvalidRetchSizeCode(KafkaError): pass
 class UnknownError(KafkaError): pass
+class KafkaIOError(KafkaError): pass
 
 error_codes = {
     1: OffsetOutOfRange,
@@ -79,7 +80,8 @@ class BaseKafka(object):
     
     # Public API
     
-    def produce(self, topic, messages, partition=None, callback=None):
+    def produce(self, topic, messages, partition=None, callback=None, 
+                retries=MAX_RETRY):
         
         # Clean up the input parameters
         partition = partition or 0
@@ -93,9 +95,18 @@ class BaseKafka(object):
         request = self._produce_request(topic, messages, partition)
         
         # Send the request
-        return self._write(request, callback)
+        try:
+            return self._write(request, callback)
+        except KafkaIOError, e:
+            retries -= 1
+            if retries > 0:
+                kafka_log.warn('KafkaIOError ({0}), retrying produce request ({1} retries left)'.format(str(e), retries))
+                return self.produce(topic, messages, partition, callback, 
+                                    retries)
+            else:
+                raise
     
-    def fetch(self, topic, offset, partition=None, max_size=None, callback=None, include_corrupt=False):
+    def fetch(self, topic, offset, partition=None, max_size=None, callback=None, include_corrupt=False, retries=MAX_RETRY):
         """ Fetch messages from a kafka queue
             
             This will sequentially read and return all available messages 
@@ -123,17 +134,29 @@ class BaseKafka(object):
         
         # Send the request. The logic for handling the response 
         # is in _read_fetch_response().
-        return self._write(
-            fetch_request_size, 
-            partial(self._wrote_request_size, 
-                    fetch_request, 
-                    partial(self._read_fetch_response, 
-                            callback, 
-                            offset, 
-                            include_corrupt
-                            )))
+        try:
+            return self._write(
+                fetch_request_size, 
+                partial(self._wrote_request_size, 
+                        fetch_request, 
+                        partial(self._read_fetch_response, 
+                                callback, 
+                                offset, 
+                                include_corrupt
+                                )))
+        except KafkaIOError, e:
+            retries -= 1
+            if retries > 0:
+                kafka_log.warn('KafkaIOError ({0}), retrying produce request ({1} retries left)'.format(str(e), retries))
+                return self.fetch(topic, offset, partition, max_size, 
+                                  callback, include_corrupt, retries)
+            else:
+                raise
+                
+                
 
-    def offsets(self, topic, time_val, max_offsets, partition=None, callback=None):
+
+    def offsets(self, topic, time_val, max_offsets, partition=None, callback=None, retries=MAX_RETRY):
         
         # Clean up the input parameters
         partition = partition or 0
@@ -144,11 +167,18 @@ class BaseKafka(object):
         
         # Send the request. The logic for handling the response 
         # is in _read_offset_response().
-        
-        return self._write(request_size, 
-            partial(self._wrote_request_size, request, 
-                partial(self._read_offset_response, callback)))
-
+        try:
+            return self._write(request_size, 
+                partial(self._wrote_request_size, request, 
+                    partial(self._read_offset_response, callback)))
+        except KafkaIOError, e:
+            retries -= 1
+            if retries > 0:
+                kafka_log.warn('KafkaIOError ({0}), retrying produce request ({1} retries left)'.format(str(e), retries))
+                return self.offsets(topic, time_val, max_offsets, partition, 
+                                    callback, retries)
+            else:
+                raise
         
     # Helper methods
     
