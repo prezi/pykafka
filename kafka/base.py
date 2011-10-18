@@ -514,6 +514,8 @@ class Topic(object):
         MESSAGE_HEADER_SIZE = 9
 
         # Init for first run
+        if end_offset is None:
+            end_offset = sys.maxint
         first_loop = True
         start_offset = offset # Offset this polling began at.
         last_offset_read = None # The offset of the last message we returned
