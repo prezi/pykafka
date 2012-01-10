@@ -9,10 +9,9 @@ from kafka import (
     InvalidOffset,
 )
 
-from kafka.nonblocking import KafkaTornado
-
 try:
     from tornado.testing import AsyncTestCase, LogTrapTestCase
+    from kafka.nonblocking import KafkaTornado
     has_tornado = True
 except ImportError:
     has_tornado = False
