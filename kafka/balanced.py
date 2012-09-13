@@ -6,6 +6,7 @@ from kafka.blocking import Kafka
 
 rand = SystemRandom()
 
+
 class BalancedKafka(Kafka):
     """
     Zookeeper based load balanced kafka producer (for now)
@@ -25,7 +26,6 @@ class BalancedKafka(Kafka):
         (hostport, _) = self.zk_client.get('/brokers/ids/{0}'.format(self.broker))
         (_, host, port) = hostport.split(':')
         return host, int(port)
-
 
     def _default_partition_num(self, topic):
         try:

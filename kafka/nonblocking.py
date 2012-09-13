@@ -1,14 +1,14 @@
-import array
 import socket
 
-from kafka.base import BaseKafka, logging, StringIO, ConnectionFailure
+from kafka.base import BaseKafka, logging, ConnectionFailure
 socket_log = logging.getLogger('kafka.iostream')
 
 from tornado.iostream import IOStream
 
 __all__ = [
-    'Kafka',
+    'KafkaTornado',
 ]
+
 
 class KafkaTornado(BaseKafka):
     def __init__(self, *args, **kwargs):
@@ -18,7 +18,7 @@ class KafkaTornado(BaseKafka):
         else:
             self._io_loop = None
         BaseKafka.__init__(self, *args, **kwargs)
-        
+
         self._stream = None
 
     # Socket management methods
@@ -27,10 +27,10 @@ class KafkaTornado(BaseKafka):
         """ Connect to the Kafka server. """
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
-        
+
         try:
             sock.connect((self.host, self.port))
-        except Exception, e:
+        except Exception:
             raise ConnectionFailure("Could not connect to kafka at {0}:{1}".format(self.host, self.port))
         else:
             self._stream = IOStream(sock, io_loop=self._io_loop)
@@ -49,10 +49,10 @@ class KafkaTornado(BaseKafka):
 
         if callback is None:
             callback = lambda v: v
-        
+
         if not self._stream:
             self._connect()
-        
+
         return self._stream.read_bytes(length, callback)
 
     def _write(self, data, callback=None, retries=BaseKafka.MAX_RETRY):
@@ -63,7 +63,7 @@ class KafkaTornado(BaseKafka):
 
         if not self._stream:
             self._connect()
-        
+
         try:
             return self._stream.write(data, callback)
         except IOError:
@@ -74,5 +74,3 @@ class KafkaTornado(BaseKafka):
                 return self._write(data, callback, retries_left)
             else:
                 raise
-            
-            
