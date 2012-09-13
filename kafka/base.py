@@ -86,7 +86,7 @@ class BaseKafka(object):
     def produce(self, topic, messages, partition=None, callback=None):
         
         # Clean up the input parameters
-        partition = partition or 0
+        partition = partition or self._default_partition_num(topic)
         topic = topic.encode('utf-8')
         if isinstance(messages, unicode):
             messages = [messages.encode('utf-8')]
@@ -400,6 +400,9 @@ class BaseKafka(object):
 
     def _write(self, data, callback=None, retries=MAX_RETRY):
         raise NotImplementedError()
+
+    def _default_partition_num(self, topic):
+        return 0
 
     def topic(self, topic, partition=None):
         """Return a Partition object that knows how to iterate through messages
