@@ -16,9 +16,11 @@ class BalancedKafka(Kafka):
 
     def __init__(self, hostports, max_size=None, include_corrupt=False):
         try:
-            self.zk_client = KazooClient(hosts=hostports, timeout=5.0, handler=SequentialGeventHandler())
+            self.zk_client = KazooClient(hosts=hostports, timeout=10.0, handler=SequentialGeventHandler())
             self.zk_client.start(timeout=1)
             self.brokers = self.zk_client.get_children('/brokers/ids')
+        except Exception as e:
+            raise ConnectionFailure("Exception while connecting to %s: %s" % (hostports, e))
         except Timeout:
             raise ConnectionFailure("Connection timeout.")
         except:
