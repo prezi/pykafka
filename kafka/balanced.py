@@ -1,8 +1,10 @@
 from random import SystemRandom
 from kazoo.exceptions import NoNodeError
+from kazoo.handlers.gevent import SequentialGeventHandler
 from kafka.base import ConnectionFailure
 from kazoo.client import KazooClient
 from kafka.blocking import Kafka
+from gevent.timeout import Timeout
 
 rand = SystemRandom()
 
@@ -13,9 +15,14 @@ class BalancedKafka(Kafka):
     """
 
     def __init__(self, hostports, max_size=None, include_corrupt=False):
-        self.zk_client = KazooClient(hosts=hostports, timeout=60)
-        self.zk_client.start()
-        self.brokers = self.zk_client.get_children('/brokers/ids')
+        try:
+            self.zk_client = KazooClient(hosts=hostports, timeout=5.0, handler=SequentialGeventHandler())
+            self.zk_client.start(timeout=1)
+            self.brokers = self.zk_client.get_children('/brokers/ids')
+        except Timeout:
+            raise ConnectionFailure("Connection timeout.")
+        except:
+            raise ConnectionFailure("Unknown exception while connecting")
         if not self.brokers:
             raise ConnectionFailure("No brokers found in zookeeper ensemble {0}".format(hostports))
         (host, port) = self._get_new_broker_host_port()
